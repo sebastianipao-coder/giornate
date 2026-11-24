@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Giornate">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Giornate</title>
+<style>
+:root{
+  --bg:#f2f2f7; --bg-sheet:#f2f2f7; --card:#fff; --card-sheet:#fff; --text:#000; --muted:rgba(60,60,67,.6); --sep:rgba(60,60,67,.29);
+  --accent:#34c759; --accent-text:#fff; --holiday:#ff3b30; --blue:#007aff; --fill:rgba(120,120,128,.16);
+  --tint-bg:rgba(52,199,89,.15); --glass:rgba(255,255,255,.72); --glass-line:rgba(0,0,0,.06); --bar:rgba(242,242,247,.8);
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#000; --bg-sheet:#1c1c1e; --card:#1c1c1e; --card-sheet:#2c2c2e; --text:#fff; --muted:rgba(235,235,245,.6); --sep:rgba(84,84,88,.65);
+    --accent:#30d158; --holiday:#ff453a; --blue:#0a84ff; --fill:rgba(120,120,128,.32);
+    --tint-bg:rgba(48,209,88,.2); --glass:rgba(44,44,46,.7); --glass-line:rgba(255,255,255,.1); --bar:rgba(0,0,0,.75); }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:#000}
+@media (prefers-color-scheme: light){ html{background:#000} }
+html,body{overflow-x:hidden;max-width:100vw}
+body{margin:0;color:var(--text);background:#000;
+  font-family:-apple-system,BlinkMacSystemFont,system-ui,"SF Pro Text","Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;overscroll-behavior:none}
+#page{background:var(--bg);min-height:100vh;transition:transform .35s cubic-bezier(.2,.8,.2,1), border-radius .35s;transform-origin:50% 0;
+  padding-bottom:calc(env(safe-area-inset-bottom) + 24px)}
+body.sheet-open #page{transform:scale(.93) translateY(calc(env(safe-area-inset-top) + 10px));border-radius:12px;overflow:hidden}
+.wrap{max-width:520px;margin:0 auto;padding:0 max(16px,env(safe-area-inset-left)) 0 max(16px,env(safe-area-inset-right))}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+
+/* nav bar */
+.navbar{position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top);background:var(--bar);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px)}
+.navbar .wrap{display:flex;align-items:center;justify-content:space-between;height:52px}
+.glass{background:var(--glass);border:.5px solid var(--glass-line);box-shadow:0 1px 6px rgba(0,0,0,.08);
+  -webkit-backdrop-filter:blur(16px) saturate(180%);backdrop-filter:blur(16px) saturate(180%)}
+.capsule{display:flex;border-radius:20px;height:40px;align-items:center}
+.capsule button{width:44px;height:40px;display:grid;place-items:center;color:var(--blue)}
+.capsule button+button{border-left:.5px solid var(--sep)}
+.circle{width:40px;height:40px;border-radius:20px;display:grid;place-items:center;color:var(--blue)}
+.navbar svg{width:20px;height:20px}
+.pill{height:40px;padding:0 16px;border-radius:20px;color:var(--blue);font-size:17px;font-weight:500}
+.pill[hidden]{display:block;visibility:hidden}
+.right{display:flex;gap:10px}
+h1{font-size:clamp(26px,8.5vw,34px);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;letter-spacing:.37px;margin:4px 0 0;text-transform:capitalize}
+h1 .year{color:var(--holiday)}
+
+/* sections */
+.section-title{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:-.08px;margin:22px 16px 7px}
+.card{background:var(--card);border-radius:12px}
+.summary{display:grid;grid-template-columns:1fr 1fr;padding:14px 0}
+.summary>div{padding:0 16px}
+.summary>div+div{border-left:.5px solid var(--sep)}
+.label{font-size:13px;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:6px}
+.label i{width:8px;height:8px;border-radius:4px;background:var(--accent);display:inline-block}
+.big{font-size:28px;font-weight:700;letter-spacing:.36px;margin-top:4px;font-variant-numeric:tabular-nums}
+.sub{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* calendar */
+.cal{padding:12px clamp(4px,2vw,10px) 10px;overflow:hidden}
+.dow,.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));column-gap:clamp(2px,1.2vw,6px);text-align:center;width:100%}
+.dow div{min-width:0;overflow:hidden;font-size:clamp(10px,3.2vw,13px);color:var(--muted);font-weight:600;padding:0 0 6px}
+.dow div:nth-child(n+6){color:var(--muted)}
+.day{width:100%;min-width:0;aspect-ratio:1;display:flex;align-items:center;justify-content:center;margin:2px 0;border-radius:50%;overflow:hidden;
+  font-size:clamp(15px,5vw,20px);font-weight:400;font-variant-numeric:tabular-nums;transition:transform .15s cubic-bezier(.2,.8,.2,1), background .2s, color .2s}
+.day:active{transform:scale(.86)}
+.day.hol{color:var(--muted)}
+.day.today{color:var(--holiday);font-weight:600}
+.day.today:not(.on){background:var(--fill)}
+.day.on{background:var(--accent);color:var(--accent-text);font-weight:600}
+.hint{font-size:13px;color:var(--muted);margin:8px 16px 0;line-height:1.4}
+
+/* sheets */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .35s;z-index:10}
+.backdrop.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;background:var(--bg-sheet);border-radius:12px 12px 0 0;
+  padding:0 16px calc(env(safe-area-inset-bottom) + 24px);transform:translateY(105%);transition:transform .4s cubic-bezier(.2,.9,.25,1);z-index:11;
+  max-height:calc(100vh - env(safe-area-inset-top) - 24px);overflow:auto;-webkit-overflow-scrolling:touch;box-shadow:0 -1px 20px rgba(0,0,0,.12)}
+.sheet.show{transform:none}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--sep);margin:6px auto 0}
+.sheet-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:50px;margin-bottom:4px}
+.sheet-head h2{font-size:17px;font-weight:600;margin:0;text-align:center;text-transform:capitalize}
+.sheet-head .l{justify-self:start;color:var(--blue);font-size:17px}
+.sheet-head .r{justify-self:end;color:var(--blue);font-size:17px;font-weight:600}
+.group-title{font-size:13px;color:var(--muted);text-transform:uppercase;margin:22px 16px 7px}
+.list{background:var(--card-sheet);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 16px;font-size:17px;gap:12px;position:relative;width:100%;text-align:left}
+.row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:.5px solid var(--sep)}
+.row input[type=text]{font:inherit;color:var(--muted);background:none;border:0;text-align:right;outline:none;width:110px;-webkit-user-select:text;user-select:text}
+.row input:focus{color:var(--text)}
+.row input::placeholder{color:var(--muted)}
+.foot{font-size:13px;color:var(--muted);margin:7px 16px 0;line-height:1.38}
+.switch{position:relative;width:51px;height:31px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch span{position:absolute;inset:0;border-radius:16px;background:var(--fill);transition:background .25s}
+.switch span::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.16);transition:transform .25s cubic-bezier(.2,.8,.2,1)}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span::after{transform:translateX(20px)}
+.row.action{color:var(--blue)}
+.row.danger{color:var(--holiday);justify-content:center}
+
+/* amount picker */
+.day-sub{text-align:center;font-size:13px;color:var(--muted);margin:-6px 0 18px}
+.chips{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.chip{height:58px;border-radius:14px;background:var(--card-sheet);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;
+  display:flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s cubic-bezier(.2,.8,.2,1)}
+.chip:active{transform:scale(.95)}
+.chip.sug{background:var(--tint-bg);color:var(--accent)}
+.chip.sel{background:var(--accent);color:var(--accent-text)}
+.chip small{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.2px;opacity:.9}
+.other{display:flex;margin-top:22px}
+.other input{flex:1;min-width:0;text-align:left !important;height:44px;border:0;background:transparent;color:var(--text);font:inherit;font-size:17px;outline:none;-webkit-user-select:text;user-select:text}
+.other button{color:var(--blue);font-weight:600;font-size:17px;padding-left:12px}
+</style>
+</head>
+<body>
+<div id="page">
+<div class="navbar"><div class="wrap">
+  <button class="pill glass" id="goToday">Oggi</button>
+  <div class="right">
+    <div class="capsule glass">
+      <button id="prev" aria-label="Mese precedente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button id="next" aria-label="Mese successivo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+    <button class="circle glass" id="openSettings" aria-label="Impostazioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+  </div>
+</div></div>
+<main class="wrap">
+  <h1 id="title">—</h1>
+  <div class="section-title">Questo mese</div>
+  <section class="card summary">
+    <div><div class="label"><i></i>Giorni lavorati</div><div class="big" id="days">0</div><div class="sub" id="daysSub">&nbsp;</div></div>
+    <div><div class="label">Guadagno netto</div><div class="big" id="money">0 €</div><div class="sub" id="moneySub">&nbsp;</div></div>
+  </section>
+  <div class="section-title">Calendario</div>
+  <section class="card cal">
+    <div class="dow"><div>LUN</div><div>MAR</div><div>MER</div><div>GIO</div><div>VEN</div><div>SAB</div><div>DOM</div></div>
+    <div class="grid" id="grid"></div>
+  </section>
+  <p class="hint">Tocca un giorno e scegli l'importo per segnarlo come lavorato.</p>
+</main>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+
+<!-- Day sheet -->
+<div class="sheet" id="daySheet" role="dialog" aria-modal="true">
+  <div class="grab"></div>
+  <div class="sheet-head"><button class="l" data-close>Annulla</button><h2 id="dayTitle">—</h2><span></span></div>
+  <p class="day-sub" id="dFoot"></p>
+  <div class="chips" id="chips"></div>
+  <div class="group-title" style="margin-top:22px">Altro importo</div>
+  <div class="list"><div class="row other" style="margin:0"><input type="text" inputmode="decimal" id="dOther" placeholder="Es. 32,50 €"><button id="dOtherOk">Salva</button></div></div>
+  <div class="list" id="dRemoveWrap" style="margin-top:22px"><button class="row danger" id="dRemove">Non ho lavorato</button></div>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet" id="setSheet" role="dialog" aria-modal="true">
+  <div class="grab"></div>
+  <div class="sheet-head"><span></span><h2>Impostazioni</h2><button class="r" data-close>Fine</button></div>
+  <div class="group-title">Importo suggerito</div>
+  <div class="list">
+    <label class="row">Lunedì – venerdì <input type="text" inputmode="decimal" id="sRate" placeholder="25"></label>
+    <label class="row">Sab, dom e festivi <input type="text" inputmode="decimal" id="sHol" placeholder="30"></label>
+  </div>
+  <div class="group-title">Importi da scegliere</div>
+  <div class="list">
+    <label class="row">Importi <input type="text" inputmode="decimal" id="sQuick" placeholder="25, 30, 35, 40" style="width:160px"></label>
+  </div>
+  <p class="foot">Separati da virgola. Sono i tasti che compaiono quando tocchi un giorno. L'importo scelto resta fisso su quel giorno anche se poi cambi queste impostazioni.</p>
+  <div class="group-title">Festivi</div>
+  <div class="list">
+    <label class="row">Sabato come festivo <span class="switch"><input type="checkbox" id="sSat"><span></span></span></label>
+    <label class="row">Domenica come festivo <span class="switch"><input type="checkbox" id="sSun"><span></span></span></label>
+    <label class="row">Santo patrono <input type="text" id="sPatron" placeholder="gg/mm"></label>
+  </div>
+  <p class="foot">Questi giorni usano l'importo suggerito festivo. I festivi nazionali italiani sono già inclusi (Capodanno, Epifania, Pasquetta, 25 Aprile, 1° Maggio, 2 Giugno, Ferragosto, 4 Ottobre, Ognissanti, Immacolata, Natale, Santo Stefano).</p>
+  <div class="group-title">Backup</div>
+  <div class="list">
+    <button class="row action" id="exportBtn">Esporta backup…</button>
+    <button class="row action" id="importBtn">Ripristina da backup…</button>
+  </div>
+  <p class="foot">I dati sono salvati su questo iPhone. Fai un backup ogni tanto e salvalo in File o iCloud.</p>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+</div>
+
+<script>
+const KEY = 'giornate-v1';
+const MONTHS = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const WD = ['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
+const eur = n => n.toLocaleString('it-IT',{style:'currency',currency:'EUR',minimumFractionDigits: n%1?2:0, maximumFractionDigits:2});
+
+let state = load();
+function load(){
+  let s=null; try{ s = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
+  if(!s || !s.days) s = { settings:{}, days:{} };
+  const d = { rate:25, holRate:30, saturday:true, sunday:true, patron:'', quick:[25,30,35,40] };
+  for(const k in d) if(s.settings[k]===undefined || ((k==='rate'||k==='holRate') && !s.settings[k])) s.settings[k]=d[k];
+  return s;
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+const pad = n => String(n).padStart(2,'0');
+const keyOf = (y,m,d) => `${y}-${pad(m+1)}-${pad(d)}`;
+
+function easter(y){ // Meeus/Jones/Butcher
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+  h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+  month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1; return new Date(y,month-1,day);
+}
+const holCache = {};
+function nationalHolidays(y){
+  if(holCache[y]) return holCache[y];
+  const set = new Map([['01-01','Capodanno'],['01-06','Epifania'],['04-25','Festa della Liberazione'],['05-01','Festa dei Lavoratori'],
+    ['06-02','Festa della Repubblica'],['08-15','Ferragosto'],['11-01','Ognissanti'],['12-08','Immacolata'],['12-25','Natale'],['12-26','Santo Stefano']]);
+  if(y>=2026) set.set('10-04','San Francesco');
+  const e = easter(y); e.setDate(e.getDate()); set.set(`${pad(e.getMonth()+1)}-${pad(e.getDate())}`,'Pasqua');
+  const pm = new Date(e); pm.setDate(pm.getDate()+1); set.set(`${pad(pm.getMonth()+1)}-${pad(pm.getDate())}`,'Pasquetta');
+  return holCache[y]=set;
+}
+function holidayName(y,m,d){
+  const md = `${pad(m+1)}-${pad(d)}`;
+  const n = nationalHolidays(y).get(md); if(n) return n;
+  const p = (state.settings.patron||'').match(/^(\d{1,2})\/(\d{1,2})$/);
+  if(p && +p[1]===d && +p[2]===m+1) return 'Santo patrono';
+  const wd = new Date(y,m,d).getDay();
+  if(state.settings.sunday && wd===0) return 'Domenica';
+  if(state.settings.saturday && wd===6) return 'Sabato';
+  return null;
+}
+function isHoliday(y,m,d){
+  const rec = state.days[keyOf(y,m,d)];
+  if(rec && rec.type==='hol') return true;
+  if(rec && rec.type==='norm') return false;
+  return !!holidayName(y,m,d);
+}
+function amountFor(y,m,d){
+  const rec = state.days[keyOf(y,m,d)];
+  if(rec && typeof rec.amount==='number') return rec.amount;
+  return isHoliday(y,m,d) ? +state.settings.holRate||0 : +state.settings.rate||0;
+}
+
+const now = new Date();
+let cy = now.getFullYear(), cm = now.getMonth();
+
+function render(){
+  document.getElementById('title').innerHTML = `${MONTHS[cm]} <span class="year">${cy}</span>`;
+  const grid = document.getElementById('grid'); grid.innerHTML='';
+  const first = (new Date(cy,cm,1).getDay()+6)%7;
+  const n = new Date(cy,cm+1,0).getDate();
+  for(let i=0;i<first;i++) grid.appendChild(document.createElement('div'));
+  let days=0,hol=0,total=0;
+  for(let d=1; d<=n; d++){
+    const b = document.createElement('button'); b.className='day'; b.dataset.d=d;
+    const rec = state.days[keyOf(cy,cm,d)];
+    const h = isHoliday(cy,cm,d);
+    if(h) b.classList.add('hol');
+    if(cy===now.getFullYear()&&cm===now.getMonth()&&d===now.getDate()) b.classList.add('today');
+    b.textContent = d;
+    if(rec && rec.worked){ b.classList.add('on'); days++; if(h) hol++; total+=amountFor(cy,cm,d); }
+    grid.appendChild(b);
+  }
+  document.getElementById('days').textContent = days;
+  document.getElementById('daysSub').textContent = days ? (hol ? `di cui ${hol} sab/dom/festiv${hol===1?'o':'i'}` : 'tutti feriali') : ' ';
+  document.getElementById('money').textContent = eur(total);
+  document.getElementById('moneySub').textContent = days ? `media ${eur(total/days)} al giorno` : '\u00a0';
+  document.getElementById('goToday').style.visibility = (cy===now.getFullYear()&&cm===now.getMonth()) ? 'hidden' : 'visible';
+}
+
+const grid = document.getElementById('grid');
+grid.addEventListener('click', e=>{ const b=e.target.closest('.day'); if(b) openDay(+b.dataset.d); });
+
+document.getElementById('prev').onclick=()=>{ cm--; if(cm<0){cm=11;cy--;} render(); };
+document.getElementById('next').onclick=()=>{ cm++; if(cm>11){cm=0;cy++;} render(); };
+document.getElementById('goToday').onclick=()=>{ cy=now.getFullYear(); cm=now.getMonth(); render(); };
+// swipe between months
+let sx=null, sy=null;
+document.querySelector('#grid').addEventListener('touchstart',e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; },{passive:true});
+document.querySelector('#grid').addEventListener('touchend',e=>{ if(sx==null) return; const dx=e.changedTouches[0].clientX-sx, dy=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5){ (dx<0?document.getElementById('next'):document.getElementById('prev')).click(); } sx=null; });
+
+// sheets
+const backdrop = document.getElementById('backdrop');
+let openSheet=null;
+function show(s){ openSheet=s; s.classList.add('show'); backdrop.classList.add('show'); document.body.classList.add('sheet-open'); }
+function hide(){ if(!openSheet) return; document.activeElement && document.activeElement.blur(); openSheet.classList.remove('show'); backdrop.classList.remove('show'); document.body.classList.remove('sheet-open'); openSheet=null; render(); }
+backdrop.onclick=hide; document.querySelectorAll('[data-close]').forEach(b=>b.onclick=hide);
+
+// day sheet
+let curDay=null;
+const chips=document.getElementById('chips'), dOther=document.getElementById('dOther');
+function setDay(amount){
+  const k=keyOf(cy,cm,curDay);
+  if(amount==null){ delete state.days[k]; }
+  else state.days[k]={ worked:true, amount };
+  save(); if(navigator.vibrate) navigator.vibrate(10); hide();
+}
+function openDay(d){
+  curDay=d; const rec=state.days[keyOf(cy,cm,d)];
+  const wd = WD[new Date(cy,cm,d).getDay()];
+  document.getElementById('dayTitle').textContent = `${wd} ${d} ${MONTHS[cm]}`;
+  const name = holidayName(cy,cm,d);
+  const sug = isHoliday(cy,cm,d) ? +state.settings.holRate : +state.settings.rate;
+  const cur = rec && rec.worked ? amountFor(cy,cm,d) : null;
+  document.getElementById('dFoot').textContent = cur!=null ? `Segnato ${eur(cur)} · tocca per cambiare` : (name ? name : 'Giorno feriale') + ' · quanto hai preso?';
+  const q = state.settings.quick||[];
+  const list = [...new Set([...q, ...(cur!=null && !q.includes(cur) ? [cur] : []), ...(!q.includes(sug) ? [sug] : [])])].sort((a,b)=>a-b);
+  chips.innerHTML='';
+  for(const v of list){
+    const b=document.createElement('button'); b.className='chip'; b.textContent=eur(v);
+    if(cur!=null){ if(v===cur){ b.classList.add('sel'); b.insertAdjacentHTML('beforeend','<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'); } }
+    else if(v===sug){ b.classList.add('sug'); const sm=document.createElement('small'); sm.textContent='suggerito'; b.appendChild(sm); }
+    b.onclick=()=>setDay(v); chips.appendChild(b);
+  }
+  dOther.value='';
+  document.getElementById('dRemoveWrap').hidden = cur==null;
+  show(document.getElementById('daySheet'));
+}
+document.getElementById('dOtherOk').onclick=()=>{ const v=parseFloat(dOther.value.replace(',','.')); if(!isNaN(v) && v>=0) setDay(v); else dOther.focus(); };
+dOther.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('dOtherOk').click(); });
+document.getElementById('dRemove').onclick=()=>setDay(null);
+
+// settings
+const sRate=document.getElementById('sRate'), sHol=document.getElementById('sHol'), sSun=document.getElementById('sSun'), sSat=document.getElementById('sSat'), sQuick=document.getElementById('sQuick'), sPatron=document.getElementById('sPatron');
+document.getElementById('openSettings').onclick=()=>{
+  sRate.value=state.settings.rate||''; sHol.value=state.settings.holRate||''; sSun.checked=state.settings.sunday!==false; sSat.checked=state.settings.saturday!==false; sQuick.value=(state.settings.quick||[]).join(', '); sPatron.value=state.settings.patron||'';
+  show(document.getElementById('setSheet'));
+};
+const num = v => { const n=parseFloat(String(v).replace(',','.')); return isNaN(n)?0:n; };
+sRate.oninput=()=>{ state.settings.rate=num(sRate.value); save(); };
+sHol.oninput=()=>{ state.settings.holRate=num(sHol.value); save(); };
+sSun.onchange=()=>{ state.settings.sunday=sSun.checked; save(); };
+sSat.onchange=()=>{ state.settings.saturday=sSat.checked; save(); };
+sQuick.onchange=()=>{ const l=sQuick.value.split(/[,;\s]+/).map(x=>parseFloat(x.replace(',','.'))).filter(x=>!isNaN(x)&&x>=0); if(l.length){ state.settings.quick=[...new Set(l)].sort((a,b)=>a-b); save(); } sQuick.value=state.settings.quick.join(', '); };
+sPatron.oninput=()=>{ state.settings.patron=sPatron.value.trim(); save(); };
+
+document.getElementById('exportBtn').onclick=async()=>{
+  const data = JSON.stringify(state,null,2);
+  const name = `giornate-backup-${new Date().toISOString().slice(0,10)}.json`;
+  const file = new File([data], name, {type:'application/json'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file]}); return; }catch(e){ if(e.name==='AbortError') return; } }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(file); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+const importFile=document.getElementById('importFile');
+document.getElementById('importBtn').onclick=()=>importFile.click();
+importFile.onchange=async()=>{
+  const f=importFile.files[0]; if(!f) return;
+  try{ const s=JSON.parse(await f.text()); if(!s.days||!s.settings) throw 0; state=s; save(); hide(); alert('Backup ripristinato.'); }
+  catch(e){ alert('File non valido.'); }
+  importFile.value='';
+};
+
+render();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
