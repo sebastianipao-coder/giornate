@@ -240,6 +240,10 @@ h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:.37px;margin:0
 /* ============ utilità ============ */
 const KEY='budget-v1', GKEY='giornate-v1';
 const IN_GIORNATE=location.pathname.includes('/giornate/');
+const VERSION='2026-11-25.5';
+function checkUpdate(){ // scarica sempre l'ultima versione pubblicata, anche se il telefono ne ha una in memoria
+  fetch(location.pathname+'?check='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(h=>{ const m=h.match(/const VERSION='([^']+)'/);
+    if(m&&m[1]!==VERSION&&sessionStorage.getItem('budget-upd')!==m[1]){ sessionStorage.setItem('budget-upd',m[1]); location.replace(location.pathname+'?v='+m[1]); } }).catch(()=>{}); }
 const MONTHS=['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
 const MONTHS_S=['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
 const WD=['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','sabato'];
@@ -755,7 +759,7 @@ function settingsSheet(){ const T=totals(); const g=giornate();
       <label class="field"><span>Conta dal</span><input type="date" data-set="gdFrom" value="${S.settings.gdFrom}"></label></div>
     <p class="foot">${g?`Trovate ${g.length} giornate lavorate in Giornate su questo dispositivo.`:'Nessun dato di Giornate su questo dispositivo/browser. Le due app devono essere aperte dallo stesso browser.'} ${S.settings.gdAuto?'Ogni giornata segnata in Giornate diventa subito un\'entrata qui (e sparisce se la togli).':'Le giornate non ancora incassate contano come entrate previste: le registri tu con un tocco.'}</p>
     <div class="card" style="margin-top:28px"><button class="row danger" data-act="reset">Cancella tutti i dati</button></div>
-    <p class="foot" style="text-align:center">I dati sono salvati solo su questo dispositivo.</p>`}); }
+    <p class="foot" style="text-align:center">I dati sono salvati solo su questo dispositivo.<br>Versione ${VERSION}</p>`}); }
 function recsSheet(){ openSheet({title:'Spese ricorrenti',cancel:'Indietro',
   body:`<div class="card list plain">${S.rec.length?S.rec.map(r=>{const c=cat(r.cat);return `<div class="row"><span class="ic" style="background:${c.color}22">${c.emoji}</span><span class="main"><div class="t">${esc(r.note||c.name)}</div><div class="st">ogni mese il giorno ${r.day} · ${r.type==='in'?'entrata':'uscita'}</div></span><span class="amt num ${r.type==='in'?'green':''}">${eur(r.amount)}</span><button class="circle" data-act="rec-del" data-id="${r.id}" aria-label="Interrompi" style="color:var(--red)">✕</button></div>`}).join(''):'<div class="empty">Nessuna spesa ricorrente. Quando aggiungi un movimento attiva “Ripeti ogni mese”.</div>'}</div>
   <p class="foot">Interrompendo una ricorrenza i movimenti già registrati restano.</p>`});
@@ -830,11 +834,12 @@ document.addEventListener('keydown',e=>{ if(e.key==='Enter'&&e.target.closest('#
 $('#fab').onclick=()=>txSheet();
 // aggiorna se Giornate cambia in un'altra scheda, o al ritorno sull'app
 window.addEventListener('storage',e=>{ if(e.key===GKEY||e.key===KEY){ if(e.key===KEY) S=load(); syncGiornate(); if(!$('#sheet').classList.contains('show')) render(); } });
-document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ applyRecurring(); syncGiornate(); if(!$('#sheet').classList.contains('show')) render(); } });
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkUpdate(); applyRecurring(); syncGiornate(); if(!$('#sheet').classList.contains('show')) render(); } });
 
 window.addEventListener('focus',()=>{ if(syncGiornate()&&!$('#sheet').classList.contains('show')) render(); });
 setInterval(()=>{ if(!document.hidden&&syncGiornate()&&!$('#sheet').classList.contains('show')) render(); },5000);
 applyRecurring(); syncGiornate(); render(); if(!S.setup) onboarding();
+checkUpdate();
 </script>
 </body>
 </html>
