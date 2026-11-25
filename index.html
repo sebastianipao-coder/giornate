@@ -13,6 +13,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 <title>Giornate</title>
+<script src="budget/sync.js"></script>
 <style>
 :root{
   --bg:#f2f2f7; --bg-sheet:#f2f2f7; --card:#fff; --card-sheet:#fff; --text:#000; --muted:rgba(60,60,67,.6); --sep:rgba(60,60,67,.29);
@@ -187,6 +188,9 @@ h1 .year{color:var(--holiday)}
     <label class="row">Santo patrono <input type="text" id="sPatron" placeholder="gg/mm"></label>
   </div>
   <p class="foot">Questi giorni usano l'importo suggerito festivo. I festivi nazionali italiani sono già inclusi (Capodanno, Epifania, Pasquetta, 25 Aprile, 1° Maggio, 2 Giugno, Ferragosto, 4 Ottobre, Ognissanti, Immacolata, Natale, Santo Stefano).</p>
+  <div class="group-title">Sincronizzazione online</div>
+  <div class="list"><a class="row action" href="budget/#sync" style="text-decoration:none"><span id="syncState">Attiva sincronizzazione</span><span style="color:var(--muted)">›</span></a></div>
+  <p class="foot">Con l'account (lo gestisci in Budget) le giornate sono salvate online e uguali su telefono e computer.</p>
   <div class="group-title">Backup</div>
   <div class="list">
     <button class="row action" id="exportBtn">Esporta backup…</button>
@@ -203,6 +207,8 @@ const WD = ['domenica','lunedì','martedì','mercoledì','giovedì','venerdì','
 const eur = n => n.toLocaleString('it-IT',{style:'currency',currency:'EUR',minimumFractionDigits: n%1?2:0, maximumFractionDigits:2});
 
 let state = load();
+window.onSyncRemote = () => { state = load(); render(); };
+if (window.Sync) Sync.onChange(Y => { const el = document.getElementById('syncState'); if (el) el.textContent = Y.active ? ('Attiva: ' + (Y.email || '')) : 'Attiva sincronizzazione'; });
 function load(){
   let s=null; try{ s = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   if(!s || !s.days) s = { settings:{}, days:{} };

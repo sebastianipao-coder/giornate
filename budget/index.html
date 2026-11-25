@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Budget</title>
+<script src="sync.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2334c759'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='-apple-system,Helvetica' font-weight='700'%3E€%3C/text%3E%3C/svg%3E">
 <style>
 :root{
@@ -240,7 +241,7 @@ h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:.37px;margin:0
 /* ============ utilità ============ */
 const KEY='budget-v1', GKEY='giornate-v1';
 const IN_GIORNATE=location.pathname.includes('/giornate/');
-const VERSION='2026-11-25.5';
+const VERSION='2026-11-25.6';
 function checkUpdate(){ // scarica sempre l'ultima versione pubblicata, anche se il telefono ne ha una in memoria
   fetch(location.pathname+'?check='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(h=>{ const m=h.match(/const VERSION='([^']+)'/);
     if(m&&m[1]!==VERSION&&sessionStorage.getItem('budget-upd')!==m[1]){ sessionStorage.setItem('budget-upd',m[1]); location.replace(location.pathname+'?v='+m[1]); } }).catch(()=>{}); }
@@ -424,6 +425,7 @@ function vHome(){
   const openC=S.credits.filter(c=>!c.closed);
   const recent=[...S.tx].sort((a,b)=>b.date.localeCompare(a.date)||(b.id>a.id?1:-1)).slice(0,5);
   let h=`<h1>Panoramica</h1><p class="subtitle">${WD[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}</p>
+  <div class="card" id="syncHint" ${window.Sync&&(Sync.active||Sync.status!=='off')?'hidden':''} style="margin-top:10px"><button class="row" data-act="settings"><span class="ic" style="background:#007aff22">☁️</span><span class="main"><div class="t">Proteggi i tuoi dati</div><div class="st">Attiva la sincronizzazione online</div></span><span class="chev">›</span></button></div>
   <div class="grid2"><div>
   <div class="card pad hero" style="margin-top:10px"><div class="lbl">Saldo libero</div>
     <div class="big num ${T.free<0?'red':''}">${eur(T.free)}</div>
@@ -575,12 +577,12 @@ function vStats(){ const ms=monthStats(statYM);
 /* ============ sheet ============ */
 let sheetDone=null, sheetStack=[];
 function openSheet({title,body,done,doneLabel='Fine',cancel='Annulla',onOpen}){
-  const sh=$('#sheet'); sheetDone=done||null;
+  const sh=$('#sheet'); sheetDone=done||null; $('#backdrop').onclick=closeSheet;
   sh.innerHTML=`<div class="grab"></div><div class="sh-head"><button class="l" data-act="sheet-close">${cancel}</button><h2>${title}</h2>${done?`<button class="r" data-act="sheet-done">${doneLabel}</button>`:'<span></span>'}</div>${body}`;
   sh.scrollTop=0; sh.classList.add('show'); $('#backdrop').classList.add('show'); document.body.style.overflow='hidden';
   sh.querySelectorAll('.amount input').forEach(fitAmount);
   if(onOpen) onOpen(sh); }
-function closeSheet(){ const sh=$('#sheet'); if(document.activeElement) document.activeElement.blur(); sh.classList.remove('show'); $('#backdrop').classList.remove('show'); document.body.style.overflow=''; sheetDone=null; render(); }
+function closeSheet(){ const sh=$('#sheet'); if(document.activeElement) document.activeElement.blur(); sh.classList.remove('show'); $('#backdrop').classList.remove('show'); document.body.style.overflow=''; sheetDone=null; render(); if(!S.setup) setTimeout(onboarding,350); }
 $('#backdrop').onclick=closeSheet;
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#sheet').classList.contains('show')) closeSheet(); });
 const val=n=>{ const el=$('#sheet [name="'+n+'"]'); return el?(el.type==='checkbox'?el.checked:el.value):undefined; };
@@ -743,7 +745,8 @@ let catBack=catsSheet;
 /* --- impostazioni --- */
 function settingsSheet(){ const T=totals(); const g=giornate();
   openSheet({title:'Impostazioni',cancel:'Chiudi',
-    body:`<div class="sec" style="margin-top:4px">Conto</div><div class="card">
+    body:`<div class="sec" style="margin-top:4px">Sincronizzazione online</div><div id="syncBox">${syncBoxHTML()}</div>
+    <div class="sec">Conto</div><div class="card">
       <button class="row plain" data-act="balance-fix"><span class="main">Saldo attuale</span><span class="num muted">${eur(T.total)}</span><span class="chev">›</span></button>
       <label class="field"><span>Soglia di sicurezza</span><input type="text" inputmode="decimal" data-set="safety" value="${fmtIn(S.settings.safety)}" style="max-width:100px"><span class="muted">€</span></label></div>
     <p class="foot">La soglia è un cuscinetto protetto: non viene mai contata nei soldi spendibili.</p>
@@ -760,6 +763,27 @@ function settingsSheet(){ const T=totals(); const g=giornate();
     <p class="foot">${g?`Trovate ${g.length} giornate lavorate in Giornate su questo dispositivo.`:'Nessun dato di Giornate su questo dispositivo/browser. Le due app devono essere aperte dallo stesso browser.'} ${S.settings.gdAuto?'Ogni giornata segnata in Giornate diventa subito un\'entrata qui (e sparisce se la togli).':'Le giornate non ancora incassate contano come entrate previste: le registri tu con un tocco.'}</p>
     <div class="card" style="margin-top:28px"><button class="row danger" data-act="reset">Cancella tutti i dati</button></div>
     <p class="foot" style="text-align:center">I dati sono salvati solo su questo dispositivo.<br>Versione ${VERSION}</p>`}); }
+function syncBoxHTML(){ const Y=window.Sync; if(!Y) return '<div class="card"><div class="empty">Sincronizzazione non disponibile.</div></div>';
+  if(Y.active){ const st={syncing:'Sincronizzazione…',ok:'Sincronizzato',offline:'Offline: invio appena torna la rete',error:'Errore di sincronizzazione',off:'Disattivata'}[Y.status]||'';
+    const when=Y.lastSync?new Date(Y.lastSync):null; const t=when?`${when.getDate()===new Date().getDate()?'oggi':shortDate(ymd(when))} alle ${pad(when.getHours())}:${pad(when.getMinutes())}`:'';
+    return `<div class="card"><div class="row plain"><span class="ic" style="background:#34c75922">☁️</span><span class="main"><div class="t">${esc(Y.email||'')}</div><div class="st ${Y.status==='error'?'red':''}">${st}${Y.status==='ok'&&t?' · '+t:''}</div></span></div>
+      <button class="row action plain" data-act="sync-now">Sincronizza ora</button><button class="row plain" data-act="sync-out" style="color:var(--red)">Esci dall'account</button></div>
+      <p class="foot">Budget e Giornate sono salvati online sul tuo account e uguali su telefono e computer. Funziona anche offline: le modifiche partono quando torna la rete.</p>`; }
+  return `<div class="card"><label class="field"><span>Email</span><input type="text" id="syEmail" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="nome@esempio.it"></label>
+    <label class="field"><span>Password</span><input type="password" id="syPass" autocomplete="current-password" placeholder="almeno 6 caratteri" style="flex:1;min-width:0;border:0;background:none;outline:none;text-align:right;height:44px;font-size:17px;color:var(--text)"></label></div>
+    <p class="foot red" id="syErr" hidden></p>
+    <div class="btns" style="margin-top:12px"><button class="btn" data-act="sync-in">Accedi</button><button class="btn sec2" data-act="sync-up">Crea account</button></div>
+    <p class="foot">Accedi per salvare Budget e Giornate online: non perdi nulla se cancelli i dati del browser o cambi telefono, e li ritrovi uguali sul computer. Puoi usare lo stesso account di Garage.</p>`; }
+async function syncAuth(kind){ const em=($('#syEmail')||{}).value?.trim(), pw=($('#syPass')||{}).value||''; const err=$('#syErr');
+  if(!em||!pw){ err.textContent='Inserisci email e password.'; err.hidden=false; return; }
+  document.querySelectorAll('[data-act=sync-in],[data-act=sync-up]').forEach(b=>{ b.disabled=true; b.style.opacity=.5; });
+  const r=await (kind==='in'?Sync.signIn(em,pw):Sync.signUp(em,pw));
+  if(!r.ok){ document.querySelectorAll('[data-act=sync-in],[data-act=sync-up]').forEach(b=>{ b.disabled=false; b.style.opacity=1; }); const e=$('#syErr'); if(e){ e.textContent=r.error; e.hidden=false; } return; }
+  toast('Sincronizzazione attiva ☁️'); const box=$('#syncBox'); if(box) box.innerHTML=syncBoxHTML(); }
+if(window.Sync) Sync.onChange(()=>{ const box=$('#syncBox'); if(box&&!box.querySelector('#syEmail')) box.innerHTML=syncBoxHTML(); else if(box&&Sync.active) box.innerHTML=syncBoxHTML(); if(!$('#sheet').classList.contains('show')&&tab==='home') { const h=$('#syncHint'); if(h) h.hidden=Sync.active; } });
+window.onSyncRemote=()=>{ const wasSetup=S.setup; S=load(); applyRecurring(); syncGiornate();
+  if($('#sheet').classList.contains('show')){ if(!wasSetup&&S.setup) closeSheet(); else { const box=$('#syncBox'); if(box) box.innerHTML=syncBoxHTML(); } }
+  render(); toast('Dati aggiornati dal cloud'); };
 function recsSheet(){ openSheet({title:'Spese ricorrenti',cancel:'Indietro',
   body:`<div class="card list plain">${S.rec.length?S.rec.map(r=>{const c=cat(r.cat);return `<div class="row"><span class="ic" style="background:${c.color}22">${c.emoji}</span><span class="main"><div class="t">${esc(r.note||c.name)}</div><div class="st">ogni mese il giorno ${r.day} · ${r.type==='in'?'entrata':'uscita'}</div></span><span class="amt num ${r.type==='in'?'green':''}">${eur(r.amount)}</span><button class="circle" data-act="rec-del" data-id="${r.id}" aria-label="Interrompi" style="color:var(--red)">✕</button></div>`}).join(''):'<div class="empty">Nessuna spesa ricorrente. Quando aggiungi un movimento attiva “Ripeti ogni mese”.</div>'}</div>
   <p class="foot">Interrompendo una ricorrenza i movimenti già registrati restano.</p>`});
@@ -777,7 +801,8 @@ function onboarding(){ openSheet({title:'Benvenuto',doneLabel:'Inizia',cancel:''
   <div class="card"><label class="field"><span>Saldo attuale del conto</span><input name="bal" type="text" inputmode="decimal" placeholder="0"><span class="muted">€</span></label>
   <label class="field"><span>Soglia di sicurezza</span><input name="safe" type="text" inputmode="decimal" value="300"><span class="muted">€</span></label></div>
   <p class="foot">La soglia è il minimo sotto cui non vuoi mai scendere: non verrà contata nei soldi spendibili. Puoi cambiare tutto dopo nelle impostazioni.</p>
-  <div style="margin-top:22px"><button class="btn" data-act="sheet-done">Inizia</button></div>`,
+  <div style="margin-top:22px"><button class="btn" data-act="sheet-done">Inizia</button></div>
+  <div style="margin-top:10px"><button class="btn sec2" data-act="onb-login">Ho già un account · Accedi</button></div>`,
   done:()=>{ S.settings.startBalance=num(val('bal')); S.settings.safety=num(val('safe')); S.setup=true; S.created=today(); S.settings.gdFrom=today().slice(0,7)+'-01'; save(); syncGiornate(); closeSheet(); } });
   $('#sheet .sh-head').innerHTML='<span></span><span></span><span></span>'; $('#backdrop').onclick=null; }
 
@@ -787,6 +812,11 @@ document.addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); i
     case 'sheet-close': closeSheet(); break;
     case 'sheet-done': sheetDone&&sheetDone(); break;
     case 'settings': settingsSheet(); break;
+    case 'sync-in': syncAuth('in'); break;
+    case 'sync-up': syncAuth('up'); break;
+    case 'sync-now': Sync.syncNow(); break;
+    case 'sync-out': if(confirm('Uscire dall\'account? I dati restano su questo dispositivo ma non verranno più sincronizzati.')){ Sync.signOut().then(()=>{ const box=$('#syncBox'); if(box) box.innerHTML=syncBoxHTML(); }); } break;
+    case 'onb-login': settingsSheet(); break;
     case 'cats': catsSheet(); break;
     case 'cats-back': catBack(); break;
     case 'recs': recsSheet(); break;
@@ -838,7 +868,7 @@ document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ checkUp
 
 window.addEventListener('focus',()=>{ if(syncGiornate()&&!$('#sheet').classList.contains('show')) render(); });
 setInterval(()=>{ if(!document.hidden&&syncGiornate()&&!$('#sheet').classList.contains('show')) render(); },5000);
-applyRecurring(); syncGiornate(); render(); if(!S.setup) onboarding();
+applyRecurring(); syncGiornate(); render(); if(!S.setup) onboarding(); else if(location.hash==='#sync') settingsSheet();
 checkUpdate();
 </script>
 </body>
