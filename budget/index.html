@@ -241,7 +241,7 @@ h1{font-size:34px;line-height:1.15;font-weight:700;letter-spacing:.37px;margin:0
 /* ============ utilità ============ */
 const KEY='budget-v1', GKEY='giornate-v1';
 const IN_GIORNATE=location.pathname.includes('/giornate/');
-const VERSION='2026-11-25.6';
+const VERSION='2026-11-25.7';
 function checkUpdate(){ // scarica sempre l'ultima versione pubblicata, anche se il telefono ne ha una in memoria
   fetch(location.pathname+'?check='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():'').then(h=>{ const m=h.match(/const VERSION='([^']+)'/);
     if(m&&m[1]!==VERSION&&sessionStorage.getItem('budget-upd')!==m[1]){ sessionStorage.setItem('budget-upd',m[1]); location.replace(location.pathname+'?v='+m[1]); } }).catch(()=>{}); }
@@ -425,7 +425,6 @@ function vHome(){
   const openC=S.credits.filter(c=>!c.closed);
   const recent=[...S.tx].sort((a,b)=>b.date.localeCompare(a.date)||(b.id>a.id?1:-1)).slice(0,5);
   let h=`<h1>Panoramica</h1><p class="subtitle">${WD[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}</p>
-  <div class="card" id="syncHint" ${window.Sync&&(Sync.active||Sync.status!=='off')?'hidden':''} style="margin-top:10px"><button class="row" data-act="settings"><span class="ic" style="background:#007aff22">☁️</span><span class="main"><div class="t">Proteggi i tuoi dati</div><div class="st">Attiva la sincronizzazione online</div></span><span class="chev">›</span></button></div>
   <div class="grid2"><div>
   <div class="card pad hero" style="margin-top:10px"><div class="lbl">Saldo libero</div>
     <div class="big num ${T.free<0?'red':''}">${eur(T.free)}</div>
@@ -769,11 +768,7 @@ function syncBoxHTML(){ const Y=window.Sync; if(!Y) return '<div class="card"><d
     return `<div class="card"><div class="row plain"><span class="ic" style="background:#34c75922">☁️</span><span class="main"><div class="t">${esc(Y.email||'')}</div><div class="st ${Y.status==='error'?'red':''}">${st}${Y.status==='ok'&&t?' · '+t:''}</div></span></div>
       <button class="row action plain" data-act="sync-now">Sincronizza ora</button><button class="row plain" data-act="sync-out" style="color:var(--red)">Esci dall'account</button></div>
       <p class="foot">Budget e Giornate sono salvati online sul tuo account e uguali su telefono e computer. Funziona anche offline: le modifiche partono quando torna la rete.</p>`; }
-  return `<div class="card"><label class="field"><span>Email</span><input type="text" id="syEmail" inputmode="email" autocomplete="email" autocapitalize="off" placeholder="nome@esempio.it"></label>
-    <label class="field"><span>Password</span><input type="password" id="syPass" autocomplete="current-password" placeholder="almeno 6 caratteri" style="flex:1;min-width:0;border:0;background:none;outline:none;text-align:right;height:44px;font-size:17px;color:var(--text)"></label></div>
-    <p class="foot red" id="syErr" hidden></p>
-    <div class="btns" style="margin-top:12px"><button class="btn" data-act="sync-in">Accedi</button><button class="btn sec2" data-act="sync-up">Crea account</button></div>
-    <p class="foot">Accedi per salvare Budget e Giornate online: non perdi nulla se cancelli i dati del browser o cambi telefono, e li ritrovi uguali sul computer. Puoi usare lo stesso account di Garage.</p>`; }
+  return `<div class="card"><div class="row plain"><span class="ic" style="background:var(--fill)">☁️</span><span class="main"><div class="t">${Y.status==='offline'?'Offline':'Connessione in corso…'}</div><div class="st">La sincronizzazione riparte da sola appena torna la rete.</div></span></div></div>`; }
 async function syncAuth(kind){ const em=($('#syEmail')||{}).value?.trim(), pw=($('#syPass')||{}).value||''; const err=$('#syErr');
   if(!em||!pw){ err.textContent='Inserisci email e password.'; err.hidden=false; return; }
   document.querySelectorAll('[data-act=sync-in],[data-act=sync-up]').forEach(b=>{ b.disabled=true; b.style.opacity=.5; });
@@ -801,8 +796,7 @@ function onboarding(){ openSheet({title:'Benvenuto',doneLabel:'Inizia',cancel:''
   <div class="card"><label class="field"><span>Saldo attuale del conto</span><input name="bal" type="text" inputmode="decimal" placeholder="0"><span class="muted">€</span></label>
   <label class="field"><span>Soglia di sicurezza</span><input name="safe" type="text" inputmode="decimal" value="300"><span class="muted">€</span></label></div>
   <p class="foot">La soglia è il minimo sotto cui non vuoi mai scendere: non verrà contata nei soldi spendibili. Puoi cambiare tutto dopo nelle impostazioni.</p>
-  <div style="margin-top:22px"><button class="btn" data-act="sheet-done">Inizia</button></div>
-  <div style="margin-top:10px"><button class="btn sec2" data-act="onb-login">Ho già un account · Accedi</button></div>`,
+  <div style="margin-top:22px"><button class="btn" data-act="sheet-done">Inizia</button></div>`,
   done:()=>{ S.settings.startBalance=num(val('bal')); S.settings.safety=num(val('safe')); S.setup=true; S.created=today(); S.settings.gdFrom=today().slice(0,7)+'-01'; save(); syncGiornate(); closeSheet(); } });
   $('#sheet .sh-head').innerHTML='<span></span><span></span><span></span>'; $('#backdrop').onclick=null; }
 
@@ -815,7 +809,7 @@ document.addEventListener('click',e=>{ const b=e.target.closest('[data-act]'); i
     case 'sync-in': syncAuth('in'); break;
     case 'sync-up': syncAuth('up'); break;
     case 'sync-now': Sync.syncNow(); break;
-    case 'sync-out': if(confirm('Uscire dall\'account? I dati restano su questo dispositivo ma non verranno più sincronizzati.')){ Sync.signOut().then(()=>{ const box=$('#syncBox'); if(box) box.innerHTML=syncBoxHTML(); }); } break;
+    case 'sync-out': if(confirm('Uscire dall\'account? I dati restano salvati online e li ritrovi quando rientri; da questo dispositivo vengono tolti.')) Sync.signOut(); break;
     case 'onb-login': settingsSheet(); break;
     case 'cats': catsSheet(); break;
     case 'cats-back': catBack(); break;

@@ -11,11 +11,31 @@
   const META = 'sync-meta';
   const SESSION_KEY = 'sb-jbfuaxwusglfgikjtdqa-auth-token';
   const ls = window.localStorage;
+  const hasSession = () => !!ls.getItem('sb-jbfuaxwusglfgikjtdqa-auth-token');
+  if (!hasSession()) document.documentElement.classList.add('needs-login');
+  const css = document.createElement('style');
+  css.textContent = `html.needs-login body>*:not(#sync-gate){visibility:hidden}
+#sync-gate{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px 20px calc(env(safe-area-inset-bottom) + 24px);
+ background:#f2f2f7;color:#000;font-family:-apple-system,BlinkMacSystemFont,system-ui,"SF Pro Text","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased;overflow:auto}
+#sync-gate .box{width:100%;max-width:380px;text-align:center}
+#sync-gate .logo{width:84px;height:84px;border-radius:20px;margin:0 auto 18px;display:grid;place-items:center;font-size:44px;background:linear-gradient(160deg,#34c759,#30b0c7);box-shadow:0 8px 24px rgba(52,199,89,.3);color:#fff;font-weight:700}
+#sync-gate h1{font-size:30px;font-weight:700;margin:0 0 6px;letter-spacing:.3px}
+#sync-gate p{color:rgba(60,60,67,.6);font-size:15px;line-height:1.4;margin:0 0 22px}
+#sync-gate .card{background:#fff;border-radius:12px;overflow:hidden;text-align:left}
+#sync-gate input{display:block;width:100%;border:0;background:none;outline:none;height:50px;padding:0 16px;font:inherit;font-size:17px;color:inherit;-webkit-user-select:text;user-select:text}
+#sync-gate input+input{border-top:.5px solid rgba(60,60,67,.29)}
+#sync-gate .err{color:#ff3b30;font-size:14px;margin:10px 4px 0;min-height:18px;text-align:left}
+#sync-gate .go{display:block;width:100%;height:50px;border:0;border-radius:14px;background:#007aff;color:#fff;font:inherit;font-size:17px;font-weight:600;margin-top:8px;cursor:pointer}
+#sync-gate .go:disabled{opacity:.5}
+#sync-gate .sw{background:none;border:0;color:#007aff;font:inherit;font-size:15px;margin-top:18px;cursor:pointer}
+#sync-gate .note{font-size:13px;margin-top:22px;margin-bottom:0}
+@media (prefers-color-scheme: dark){#sync-gate{background:#000;color:#fff}#sync-gate .card{background:#1c1c1e}#sync-gate p{color:rgba(235,235,245,.6)}#sync-gate input+input{border-top-color:rgba(84,84,88,.65)}#sync-gate .go{background:#0a84ff}#sync-gate .sw{color:#0a84ff}#sync-gate .err{color:#ff453a}}`;
+  document.head.appendChild(css);
   const origSet = Storage.prototype.setItem;
   let meta = {}; try { meta = JSON.parse(ls.getItem(META)) || {}; } catch (e) {}
   const saveMeta = () => origSet.call(ls, META, JSON.stringify(meta));
 
-  let sb = null, user = null, applying = false, running = false, again = false, pushT = null;
+  let quiet = false, sb = null, user = null, applying = false, running = false, again = false, pushT = null;
   const listeners = [];
   const Sync = {
     status: 'off', error: null, email: null, lastSync: meta.lastSync || null,
@@ -38,7 +58,7 @@
 
   function loadLib() {
     if (window.supabase) return Promise.resolve();
-    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = CFG.lib; s.onload = res; s.onerror = () => rej(new Error('rete')); document.head.appendChild(s); });
+    return new Promise((res, rej) => { const s = document.createElement('script'); s.src = CFG.lib; s.onload = () => window.supabase ? res() : rej(new Error('rete')); s.onerror = () => rej(new Error('rete')); document.head.appendChild(s); });
   }
   async function client() {
     if (sb) return sb;
@@ -91,7 +111,7 @@
       }
       meta.lastSync = Sync.lastSync = new Date().toISOString(); saveMeta();
       set('ok');
-      if (changed) { if (typeof window.onSyncRemote === 'function') window.onSyncRemote(); else location.reload(); }
+      if (changed && !quiet) { if (typeof window.onSyncRemote === 'function') window.onSyncRemote(); else location.reload(); }
     } catch (e) {
       saveMeta(); set(navigator.onLine ? 'error' : 'offline', e && e.message);
     } finally {
@@ -110,26 +130,64 @@
     if (m.includes('not confirmed')) return 'Conferma prima l\'email dal link che ti è arrivato.';
     return 'Qualcosa non ha funzionato: ' + (e && e.message || 'errore');
   }
-  async function signIn(email, password) {
+  async function signIn(email, password, fromGate) {
     try { await client(); const { data, error } = await sb.auth.signInWithPassword({ email, password }); if (error) throw error;
-      user = data.user; Sync.email = user.email; await syncNow(); return { ok: true }; }
+      user = data.user; Sync.email = user.email; claimDevice(user.id); quiet = !!fromGate; await syncNow(); quiet = false; return { ok: true }; }
     catch (e) { return { ok: false, error: itErr(e) }; }
   }
-  async function signUp(email, password) {
+  async function signUp(email, password, fromGate) {
     try { await client(); const { data, error } = await sb.auth.signUp({ email, password }); if (error) throw error;
       if (!data.session) return { ok: false, error: 'Ti abbiamo mandato un\'email: apri il link per confermare, poi accedi.' };
-      user = data.user; Sync.email = user.email; await syncNow(); return { ok: true }; }
+      user = data.user; Sync.email = user.email; claimDevice(user.id); quiet = !!fromGate; await syncNow(); quiet = false; return { ok: true }; }
     catch (e) { return { ok: false, error: itErr(e) }; }
   }
-  async function signOut() { try { await client(); await sb.auth.signOut(); } catch (e) {} user = null; Sync.email = null; set('off'); }
+  // uscita: invio le ultime modifiche, poi tolgo i dati da questo dispositivo (restano sul tuo account)
+  async function signOut() {
+    if (user) { await syncNow(); }
+    const pending = Object.values(APPS).some(a => meta[a] && meta[a].dirty);
+    if (pending && !confirm('Alcune modifiche non sono ancora state salvate online (sei offline?). Uscendo andranno perse. Uscire lo stesso?')) return false;
+    try { await client(); await sb.auth.signOut({ scope: 'local' }); } catch (e) {}
+    ls.removeItem(SESSION_KEY);
+    for (const k of Object.keys(APPS)) { ls.removeItem(k); ls.removeItem(k + '-prima-della-sync'); }
+    ls.removeItem(META); ls.removeItem('budget-tab');
+    location.reload(); return true;
+  }
+
+  function showGate() {
+    if (document.getElementById('sync-gate')) return;
+    let mode = 'in';
+    const g = document.createElement('div'); g.id = 'sync-gate';
+    g.innerHTML = `<form class="box" autocomplete="on"><div class="logo">€</div><h1>Accedi</h1>
+      <p>Entra con il tuo account per usare Giornate e Budget. I tuoi dati restano salvati online e li ritrovi su ogni dispositivo.</p>
+      <div class="card"><input type="email" name="email" placeholder="Email" autocomplete="username" autocapitalize="off" required>
+      <input type="password" name="password" placeholder="Password" autocomplete="current-password" required></div>
+      <div class="err"></div><button class="go" type="submit">Accedi</button>
+      <button class="sw" type="button">Non hai un account? <b>Crea account</b></button>
+      <p class="note">Ogni persona usa le proprie credenziali e vede solo i propri dati.</p></form>`;
+    document.body.appendChild(g);
+    const f = g.querySelector('form'), err = g.querySelector('.err'), go = g.querySelector('.go'), sw = g.querySelector('.sw'), h = g.querySelector('h1'), pw = f.password;
+    sw.onclick = () => { mode = mode === 'in' ? 'up' : 'in'; err.textContent = '';
+      h.textContent = mode === 'in' ? 'Accedi' : 'Crea account'; go.textContent = mode === 'in' ? 'Accedi' : 'Crea account';
+      pw.placeholder = mode === 'in' ? 'Password' : 'Password (almeno 6 caratteri)'; pw.autocomplete = mode === 'in' ? 'current-password' : 'new-password';
+      sw.innerHTML = mode === 'in' ? 'Non hai un account? <b>Crea account</b>' : 'Hai già un account? <b>Accedi</b>'; };
+    f.onsubmit = async e => { e.preventDefault(); err.textContent = ''; go.disabled = true; go.textContent = 'Un momento…';
+      const r = await (mode === 'in' ? signIn(f.email.value.trim(), pw.value, true) : signUp(f.email.value.trim(), pw.value, true));
+      if (r.ok) { location.reload(); return; }
+      go.disabled = false; go.textContent = mode === 'in' ? 'Accedi' : 'Crea account'; err.textContent = r.error; };
+  }
+  // dati locali di un altro account su questo dispositivo: li tolgo prima di caricare quelli del nuovo
+  function claimDevice(uid) {
+    if (meta.owner && meta.owner !== uid) { for (const k of Object.keys(APPS)) { ls.removeItem(k); ls.removeItem(k + '-prima-della-sync'); } meta = {}; }
+    meta.owner = uid; saveMeta();
+  }
 
   async function start() {
-    if (!ls.getItem(SESSION_KEY)) { set('off'); return; }
+    if (!hasSession()) { set('off'); showGate(); return; }
     try {
       await client();
       const { data } = await sb.auth.getSession();
       user = data.session ? data.session.user : null; Sync.email = user ? user.email : null;
-      if (user) await syncNow(); else set('off');
+      if (user) { claimDevice(user.id); await syncNow(); } else if (navigator.onLine) { ls.removeItem(SESSION_KEY); document.documentElement.classList.add('needs-login'); showGate(); } else set('offline');
     } catch (e) { set(navigator.onLine ? 'error' : 'offline', e && e.message); }
   }
   window.addEventListener('online', () => syncNow());

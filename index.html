@@ -188,9 +188,9 @@ h1 .year{color:var(--holiday)}
     <label class="row">Santo patrono <input type="text" id="sPatron" placeholder="gg/mm"></label>
   </div>
   <p class="foot">Questi giorni usano l'importo suggerito festivo. I festivi nazionali italiani sono già inclusi (Capodanno, Epifania, Pasquetta, 25 Aprile, 1° Maggio, 2 Giugno, Ferragosto, 4 Ottobre, Ognissanti, Immacolata, Natale, Santo Stefano).</p>
-  <div class="group-title">Sincronizzazione online</div>
-  <div class="list"><a class="row action" href="budget/#sync" style="text-decoration:none"><span id="syncState">Attiva sincronizzazione</span><span style="color:var(--muted)">›</span></a></div>
-  <p class="foot">Con l'account (lo gestisci in Budget) le giornate sono salvate online e uguali su telefono e computer.</p>
+  <div class="group-title">Account</div>
+  <div class="list"><div class="row"><span id="syncState" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</span></div><button class="row danger" id="logoutBtn">Esci dall'account</button></div>
+  <p class="foot">Le giornate sono salvate online sul tuo account e uguali su telefono e computer.</p>
   <div class="group-title">Backup</div>
   <div class="list">
     <button class="row action" id="exportBtn">Esporta backup…</button>
@@ -208,7 +208,8 @@ const eur = n => n.toLocaleString('it-IT',{style:'currency',currency:'EUR',minim
 
 let state = load();
 window.onSyncRemote = () => { state = load(); render(); };
-if (window.Sync) Sync.onChange(Y => { const el = document.getElementById('syncState'); if (el) el.textContent = Y.active ? ('Attiva: ' + (Y.email || '')) : 'Attiva sincronizzazione'; });
+if (window.Sync) Sync.onChange(Y => { const el = document.getElementById('syncState'); if (el) el.textContent = Y.active ? (Y.email || '') + (Y.status === 'ok' ? ' · sincronizzato' : Y.status === 'offline' ? ' · offline' : '') : (Y.status === 'offline' ? 'Offline' : '—'); });
+document.getElementById('logoutBtn').onclick = () => { if (window.Sync && confirm('Uscire dall\'account? Le giornate restano salvate online e le ritrovi quando rientri.')) Sync.signOut(); };
 function load(){
   let s=null; try{ s = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
   if(!s || !s.days) s = { settings:{}, days:{} };
