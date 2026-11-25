@@ -435,7 +435,7 @@ function vHome(){
   if(g){ h+=`<div class="sec">Da Giornate</div><div class="card">
     <div class="row plain"><span class="ic" style="background:#34c75922">🗓️</span><span class="main"><div class="t">${cap(MONTHS[d.getMonth()])}: ${gm.days} ${gm.days===1?'giornata':'giornate'}</div><div class="st">Guadagno previsto ${eur(gm.total)}</div></span></div>
     ${pendSum?`<button class="row action" data-act="gd-import"><span class="ic" style="background:#007aff22">💶</span><span class="main"><div class="t">Da incassare: <b class="num">${eur(pendSum)}</b></div><div class="st">${pend.length} ${pend.length===1?'giornata':'giornate'} non ancora registrate come entrata</div></span><span class="chev">›</span></button>`
-     :`<div class="row plain"><span class="ic" style="background:var(--fill)">✓</span><span class="main st">${S.settings.gdAuto?'Si aggiornano da sole: ogni giornata lavorata diventa un\'entrata':'Tutte le giornate sono già registrate'}</span></div>`}
+     :`<div class="row plain"><span class="ic" style="background:var(--fill)">✓</span><span class="main st" style="white-space:normal">${S.settings.gdAuto?'Si aggiornano da sole: ogni giornata lavorata diventa un\'entrata':'Tutte le giornate sono già registrate'}</span></div>`}
     </div>${pendSum?`<p class="foot">Le giornate da incassare contano già nella Wishlist come soldi in arrivo.</p>`:''}`; }
   h+=`</div><div>`;
   h+=`<div class="sec">${cap(MONTHS[d.getMonth()])}</div><div class="card duo">
