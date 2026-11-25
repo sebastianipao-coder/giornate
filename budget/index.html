@@ -295,6 +295,8 @@ function load(){ let s=null; try{ s=JSON.parse(localStorage.getItem(KEY)); }catc
   const d=defaults(); if(!s) return d;
   for(const k in d) if(s[k]===undefined) s[k]=d[k];
   for(const k in d.settings) if(s.settings[k]===undefined) s.settings[k]=d.settings[k];
+  // v2: le giornate contano dall'inizio del mese in cui hai iniziato, non solo dal giorno di attivazione
+  if(!s.settings.gdFromFix){ if(s.settings.gdFrom&&s.created&&s.settings.gdFrom>s.created.slice(0,7)+'-01') s.settings.gdFrom=s.created.slice(0,7)+'-01'; s.settings.gdFromFix=true; }
   return s; }
 function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){ toast('Impossibile salvare i dati'); } }
 const cat=id=>S.cats.find(c=>c.id===id)||{name:'Senza categoria',emoji:'•',color:'#8e8e93',kind:'out'};
@@ -772,7 +774,7 @@ function onboarding(){ openSheet({title:'Benvenuto',doneLabel:'Inizia',cancel:''
   <label class="field"><span>Soglia di sicurezza</span><input name="safe" type="text" inputmode="decimal" value="300"><span class="muted">€</span></label></div>
   <p class="foot">La soglia è il minimo sotto cui non vuoi mai scendere: non verrà contata nei soldi spendibili. Puoi cambiare tutto dopo nelle impostazioni.</p>
   <div style="margin-top:22px"><button class="btn" data-act="sheet-done">Inizia</button></div>`,
-  done:()=>{ S.settings.startBalance=num(val('bal')); S.settings.safety=num(val('safe')); S.setup=true; S.created=today(); S.settings.gdFrom=today(); save(); syncGiornate(); closeSheet(); } });
+  done:()=>{ S.settings.startBalance=num(val('bal')); S.settings.safety=num(val('safe')); S.setup=true; S.created=today(); S.settings.gdFrom=today().slice(0,7)+'-01'; save(); syncGiornate(); closeSheet(); } });
   $('#sheet .sh-head').innerHTML='<span></span><span></span><span></span>'; $('#backdrop').onclick=null; }
 
 /* ============ azioni ============ */
